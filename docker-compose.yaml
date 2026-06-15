@@ -109,7 +109,7 @@ services:
       - "9001:9001"
 
   metabase:
-    image: metabase/metabase:latest
+    image: metabase/metabase:0.52
     ports:
       - "3000:3000"
     environment:
