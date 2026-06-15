@@ -316,3 +316,11 @@ services:
 
 volumes:
   postgres-db-volume:
+  metabase:
+  image: metabase/metabase:latest
+  ports:
+    - "3000:3000"
+  volumes:
+    - ./plugins:/plugins
+  environment:
+    MB_PLUGINS_DIR: /plugins
