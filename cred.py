@@ -1,2 +1,0 @@
-access="W1sa39zHjNvND15Uzzt3"
-secret="t8aXCWYYZHvpapGpTL1Pc6CaDdCumr9bKGW58gDS"
