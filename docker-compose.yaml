@@ -109,7 +109,7 @@ services:
       - "9001:9001"
 
   metabase:
-    image: metabase/metabase:0.52.13
+    image: metabase/v0.62.1.
     ports:
       - "3000:3000"
     environment:
@@ -327,3 +327,5 @@ services:
 volumes:
   postgres-db-volume:
   metabase_data:
+
+
