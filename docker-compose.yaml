@@ -111,7 +111,7 @@ services:
     command: server /data --address ":9000" --console-address ":9001"
 
   metabase:
-    image: metabase/metabase:0.62.1
+    image: metabase/metabase:v0.62.1
     ports:
       - "3000:3000"
     environment:
