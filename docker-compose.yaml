@@ -213,7 +213,7 @@ services:
     depends_on:
       <<: *airflow-common-depends-on
       airflow-apiserver:
-        condition: service_healthy
+        condition: service_started
       airflow-init:
         condition: service_completed_successfully
 
