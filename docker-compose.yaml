@@ -165,12 +165,12 @@ services:
     command: api-server
     ports:
       - "8080:8080"
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+    #healthcheck:
+     # test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      #interval: 30s
+      #timeout: 10s
+      #retries: 5
+      #start_period: 30s
     restart: always
     depends_on:
       <<: *airflow-common-depends-on
