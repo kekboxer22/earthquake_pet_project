@@ -111,7 +111,7 @@ services:
       - ./data:/data
       - ./logs:logs
     command: server /data --address ":9000" --console-address ":9001"
-    restart: umless-stopped
+    restart: unless-stopped
 
   metabase:
     image: metabase/metabase:v0.62.1
