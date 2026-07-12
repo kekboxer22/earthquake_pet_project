@@ -1,0 +1,4 @@
+requests
+duckdb
+apache-airflow-providers-postgres
+apache-airflow-providers-common-sql
