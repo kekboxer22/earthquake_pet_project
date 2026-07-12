@@ -16,8 +16,8 @@ PG_CONNECT = "postgres_dwh"
 
 args = {
     "owner": OWNER,
-    "start_date": pendulum.datetime(2025, 5, 1, tz="UTC"),
-    "catchup": True,
+    "start_date": pendulum.datetime(2026, 7, 1, tz="UTC"),
+    "catchup": False,
     "retries": 3,
     "retry_delay": pendulum.duration(hours=1),
 }
