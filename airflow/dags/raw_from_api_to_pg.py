@@ -40,9 +40,12 @@ def load_api_to_postgres(**context):
 
     # 1. Забираем данные из API в CSV
     url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=csv&starttime={start_date}&endtime={end_date}"
-    response = requests.get(url)
+    response = requests.get(url, timeout=60)
     response.raise_for_status()
-    csv_data = BytesIO(response.content)
+
+    tmp_path = f"/tmp/earthquake_{start_date}.csv"
+    with open(tmp_path, "wb") as f:
+        f.write(response.content)
 
     # 2. Через DuckDB читаем CSV и сразу вставляем в PostgreSQL
     con = duckdb.connect()
@@ -112,7 +115,7 @@ def load_api_to_postgres(**context):
             status,
             locationSource AS location_source,
             magSource AS mag_source
-        FROM read_csv_auto('{csv_data.getvalue().decode()}')
+        FROM read_csv_auto('{tmp_path}')
     """)
 
     con.close()

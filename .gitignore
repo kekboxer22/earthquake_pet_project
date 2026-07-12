@@ -221,3 +221,6 @@ __marimo__/
 data/
 logs/
 cred.py
+*.pyc
+venv/
+.env
