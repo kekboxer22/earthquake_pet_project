@@ -20,7 +20,7 @@ TARGET_TABLE = "fct_earthquake"
 
 args = {
     "owner": OWNER,
-    "start_date": pendulum.datetime(2026, 7, 12, tz="UTC"),
+    "start_date": pendulum.datetime(2026, 6, 12, tz="UTC"),
     "catchup": False,
     "retries": 3,
     "retry_delay": pendulum.duration(hours=1),
