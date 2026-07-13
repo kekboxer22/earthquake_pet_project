@@ -9,6 +9,8 @@ x-airflow-common: &airflow-common
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
     # DAG'и коннектятся к DWH через airflow connection id "postgres_dwh"
     AIRFLOW_CONN_POSTGRES_DWH: postgresql://postgres:postgres@warehouse-postgres:5432/postgres
+    TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+    TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/plugins:/opt/airflow/plugins

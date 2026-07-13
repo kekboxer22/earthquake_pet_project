@@ -1,18 +1,17 @@
 """
-DAG: Загрузка данных из USGS API → DuckDB → PostgreSQL (ODS)
+DAG: Load earthquake data from USGS API -> DuckDB -> PostgreSQL (ODS)
 """
 
 import logging
 import duckdb
 import pendulum
 import requests
-from io import BytesIO
 from airflow import DAG
 from airflow.operators.dummy import DummyOperator
 from airflow.operators.python import PythonOperator
-from airflow.providers.postgres.hooks.postgres import PostgresHook
+from telegram_notify import on_failure_callback, on_success_callback
 
-# ========== ПАРАМЕТРЫ ==========
+# ========== PARAMETERS ==========
 OWNER = "mykyta"
 DAG_ID = "raw_from_api_to_pg"
 SOURCE = "earthquake"
@@ -21,10 +20,11 @@ TARGET_TABLE = "fct_earthquake"
 
 args = {
     "owner": OWNER,
-    "start_date": pendulum.datetime(2026, 7, 1, tz="UTC"),
+    "start_date": pendulum.datetime(2026, 7, 12, tz="UTC"),
     "catchup": False,
     "retries": 3,
     "retry_delay": pendulum.duration(hours=1),
+    "on_failure_callback": on_failure_callback,
 }
 
 
@@ -36,9 +36,10 @@ def get_dates(**context):
 
 def load_api_to_postgres(**context):
     start_date, end_date = get_dates(**context)
-    logging.info(f"⏳ Загрузка за: {start_date} → {end_date}")
+    logging.info(f"⏳ Loading data for: {start_date} → {end_date}")
 
-    # 1. Забираем данные из API в CSV
+    # 1. Fetch CSV from the API and write it to a temp file
+    #    (read_csv_auto expects a file path, not raw text)
     url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=csv&starttime={start_date}&endtime={end_date}"
     response = requests.get(url, timeout=60)
     response.raise_for_status()
@@ -47,7 +48,7 @@ def load_api_to_postgres(**context):
     with open(tmp_path, "wb") as f:
         f.write(response.content)
 
-    # 2. Через DuckDB читаем CSV и сразу вставляем в PostgreSQL
+    # 2. Use DuckDB to read the CSV and insert straight into PostgreSQL
     con = duckdb.connect()
     con.sql(f"""
         CREATE SECRET dwh_postgres (
@@ -61,7 +62,7 @@ def load_api_to_postgres(**context):
         ATTACH '' AS dwh_postgres_db (TYPE postgres, SECRET dwh_postgres);
     """)
 
-    # Создаём таблицу, если её нет
+    # Create the table if it doesn't exist yet
     con.sql(f"""
         CREATE TABLE IF NOT EXISTS dwh_postgres_db.{SCHEMA}.{TARGET_TABLE} (
             time TIMESTAMP,
@@ -89,7 +90,13 @@ def load_api_to_postgres(**context):
         );
     """)
 
-    # Вставка данных
+    # Delete existing rows for this interval before inserting — keeps retries idempotent
+    con.sql(f"""
+        DELETE FROM dwh_postgres_db.{SCHEMA}.{TARGET_TABLE}
+        WHERE time::date >= '{start_date}' AND time::date < '{end_date}'
+    """)
+
+    # Insert the data
     con.sql(f"""
         INSERT INTO dwh_postgres_db.{SCHEMA}.{TARGET_TABLE}
         SELECT
@@ -119,7 +126,7 @@ def load_api_to_postgres(**context):
     """)
 
     con.close()
-    logging.info(f"✅ Данные за {start_date} загружены в {SCHEMA}.{TARGET_TABLE}")
+    logging.info(f"✅ Data for {start_date} loaded into {SCHEMA}.{TARGET_TABLE}")
 
 
 # ========== DAG ==========
@@ -127,8 +134,9 @@ with DAG(
     dag_id=DAG_ID,
     schedule_interval="0 5 * * *",
     default_args=args,
+    on_success_callback=on_success_callback,
     tags=["api", "pg", "ods"],
-    description="Загрузка землетрясений из USGS API в PostgreSQL",
+    description="Load earthquake data from USGS API into PostgreSQL",
     concurrency=1,
     max_active_runs=1,
 ) as dag:

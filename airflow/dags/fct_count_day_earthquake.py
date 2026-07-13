@@ -1,12 +1,16 @@
 """
-DAG: Витрина количества землетрясений по дням
+DAG: Daily earthquake count mart
 """
 
 import pendulum
 from airflow import DAG
 from airflow.operators.dummy import DummyOperator
+from airflow.operators.python import PythonOperator
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
+from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.sensors.external_task import ExternalTaskSensor
+from datetime import timedelta
+from telegram_notify import on_failure_callback, on_success_callback, send_custom_message
 
 OWNER = "mykyta"
 DAG_ID = "fct_count_day_earthquake"
@@ -16,16 +20,37 @@ PG_CONNECT = "postgres_dwh"
 
 args = {
     "owner": OWNER,
-    "start_date": pendulum.datetime(2026, 7, 1, tz="UTC"),
+    "start_date": pendulum.datetime(2026, 7, 12, tz="UTC"),
     "catchup": False,
     "retries": 3,
     "retry_delay": pendulum.duration(hours=1),
+    "on_failure_callback": on_failure_callback,
 }
+
+
+def notify_daily_result(**context):
+    # Fetch the freshly computed value and send it to Telegram
+    date_str = context["data_interval_start"].format("YYYY-MM-DD")
+    hook = PostgresHook(postgres_conn_id=PG_CONNECT)
+    result = hook.get_first(
+        f"SELECT cnt FROM {SCHEMA}.{TARGET_TABLE} WHERE date = %s",
+        parameters=(date_str,),
+    )
+    cnt = result[0] if result else None
+
+    if cnt is not None:
+        text = f"🌍 <b>Earthquakes on {date_str}</b>: {cnt}"
+    else:
+        text = f"🌍 No data for {date_str} yet"
+
+    send_custom_message(text)
+
 
 with DAG(
     dag_id=DAG_ID,
     schedule_interval="0 6 * * *",
     default_args=args,
+    on_success_callback=on_success_callback,
     tags=["dm", "pg"],
     concurrency=1,
     max_active_runs=1,
@@ -39,6 +64,7 @@ with DAG(
         mode="reschedule",
         timeout=36000,
         poke_interval=60,
+        execution_delta=timedelta(hours=1),  # raw runs at 05:00, this DAG runs at 06:00
     )
 
     drop_stg = SQLExecuteQueryOperator(
@@ -94,6 +120,11 @@ with DAG(
         """,
     )
 
+    notify_result = PythonOperator(
+        task_id="notify_daily_result",
+        python_callable=notify_daily_result,
+    )
+
     end = DummyOperator(task_id="end")
 
     (
@@ -104,5 +135,6 @@ with DAG(
         >> delete_target
         >> insert_target
         >> drop_stg_after
+        >> notify_result
         >> end
     )
